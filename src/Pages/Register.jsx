@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { User, Calendar, Briefcase, Target, Building, Award, ChevronRight, ChevronLeft, CheckCircle, Moon, Sun } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Calendar, Briefcase, Target, Building, Award, ChevronRight, ChevronLeft, CheckCircle, Moon, Sun, Mail, Phone, Camera } from 'lucide-react';
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [captureStatus, setCaptureStatus] = useState('');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const webcamRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
+    mobile: '',
     age: '',
     dob: '',
     gender: '',
@@ -25,7 +33,7 @@ export default function RegisterPage() {
 
   const onHome = () => {
     console.log('Navigate to home');
-  }
+  };
 
   const nextStep = () => {
     if (currentStep < 4) {
@@ -39,11 +47,199 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Registration data:', formData);
+  const handleSubmit = async () => {
+    try {
+      // Prepare data according to Django model field names
+      const registrationData = {
+        full_name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        password: formData.password || 'defaultPassword123', // You should add password field
+        age: parseInt(formData.age),
+        dob: formData.dob,
+        gender: formData.gender.toLowerCase().replace(/ /g, '_'),
+        current_status: formData.educationOccupation.toLowerCase().replace(/ /g, '_'),
+        job_role: formData.studyingWorking,
+        career_interest: formData.domainInterest,
+        target_company: formData.targetCompany,
+        confident_skills: formData.skills,
+        face_encoding: '' // Will be filled after face capture
+      };
+
+      const response = await fetch('http://127.0.0.1:8000/api/account/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Registration successful:', data);
+        setCaptureStatus('');
+        setShowFaceCapture(true);
+        startCamera();
+      } else {
+        alert(`Registration failed: ${JSON.stringify(data.errors || data.message)}`);
+      }
+    } catch (error) {
+      console.error('Error during registration:', error);
+      alert('Registration failed. Please check your connection and try again.');
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480 } 
+      });
+      setStream(mediaStream);
+      if (webcamRef.current) {
+        webcamRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setCaptureStatus('Error accessing camera. Please check permissions.');
+    }
+  };
+
+  const captureAndSend = async () => {
+    if (!webcamRef.current) return;
+    
+    setIsCapturing(true);
+    setCaptureStatus('Capturing...');
+    
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = webcamRef.current.videoWidth;
+      canvas.height = webcamRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(webcamRef.current, 0, 0);
+      const imageSrc = canvas.toDataURL('image/jpeg');
+
+      // Simulate API call (replace with your actual endpoint)
+      const response = await fetch('http://127.0.0.1:8000/api/account/register-face/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          image: imageSrc
+        })
+      });
+
+      const data = await response.json();
+      setCaptureStatus(data.message || 'Face captured successfully!');
+      
+      // Stop camera after successful capture
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      setTimeout(() => {
+        setCaptureStatus('Registration completed! Redirecting...');
+        // Add redirect logic here
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Error capturing face:', err);
+      setCaptureStatus('Error capturing face. Please try again.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const retakePhoto = () => {
+    setCaptureStatus('');
+    startCamera();
   };
 
   const progressPercentage = (currentStep / 4) * 100;
+
+  if (showFaceCapture) {
+    return (
+      <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center px-4 py-8 transition-colors duration-300`}>
+        <div className="w-full max-w-2xl">
+          <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-6 sm:p-8 transition-colors duration-300`}>
+            <h2 className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6 flex items-center gap-2 justify-center`}>
+              <Camera className={isDark ? 'text-white' : 'text-gray-900'} size={32} />
+              Face Verification
+            </h2>
+            
+            <p className={`text-center ${isDark ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
+              Please position your face in the frame and click capture
+            </p>
+
+            <div className="flex flex-col items-center">
+              <div className={`relative rounded-lg overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-gray-100'} mb-6`}>
+                <video
+                  ref={webcamRef}
+                  autoPlay
+                  playsInline
+                  className="w-full max-w-md rounded-lg"
+                  style={{ transform: 'scaleX(-1)' }}
+                />
+                <div className="absolute inset-0 border-4 border-dashed border-white/30 rounded-lg pointer-events-none"></div>
+              </div>
+
+              {captureStatus && (
+                <div className={`mb-4 p-4 rounded-lg ${
+                  captureStatus.includes('Error') 
+                    ? 'bg-red-100 text-red-800' 
+                    : captureStatus.includes('successfully') 
+                    ? 'bg-green-100 text-green-800'
+                    : isDark ? 'bg-gray-700 text-gray-200' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {captureStatus}
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={captureAndSend}
+                  disabled={isCapturing}
+                  className={`flex items-center gap-2 ${
+                    isCapturing 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'
+                  } px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                >
+                  <Camera size={20} />
+                  {isCapturing ? 'Capturing...' : 'Capture Face'}
+                </button>
+
+                {captureStatus.includes('Error') && (
+                  <button
+                    onClick={retakePhoto}
+                    className={`flex items-center gap-2 ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg font-semibold transition-all duration-200`}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => {
+                  setShowFaceCapture(false);
+                  if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                  }
+                }}
+                className={`${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-700'} font-semibold transition-colors duration-200`}
+              >
+                ← Back to Form
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center px-4 py-8 transition-colors duration-300`}>
@@ -124,6 +320,36 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
                   placeholder="Enter your full name"
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+                  <Mail className="inline mr-2" size={18} />
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
+                  placeholder="your.email@example.com"
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+                  <Phone className="inline mr-2" size={18} />
+                  Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
+                  placeholder="+1 (555) 000-0000"
                 />
               </div>
 
@@ -305,6 +531,8 @@ export default function RegisterPage() {
                 <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'} mb-2`}>Review Your Information</h4>
                 <div className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'} space-y-1`}>
                   <p><strong>Name:</strong> {formData.name || 'Not provided'}</p>
+                  <p><strong>Email:</strong> {formData.email || 'Not provided'}</p>
+                  <p><strong>Mobile:</strong> {formData.mobile || 'Not provided'}</p>
                   <p><strong>Age:</strong> {formData.age || 'Not provided'}</p>
                   <p><strong>Status:</strong> {formData.educationOccupation || 'Not provided'}</p>
                   <p><strong>Domain:</strong> {formData.domainInterest || 'Not provided'}</p>
@@ -342,7 +570,7 @@ export default function RegisterPage() {
                 className={`flex items-center gap-2 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
               >
                 <CheckCircle size={20} />
-                Complete Registration
+                Continue to Verification
               </button>
             )}
           </div>

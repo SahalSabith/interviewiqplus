@@ -3,6 +3,7 @@ import HomePage from './Pages/Home'
 import LoginPage from './Pages/Login'
 import RegisterPage from './Pages/Register'
 import InterviewPage from './Pages/interviewPage'
+import FaceVerifyPage from './Pages/FaceVerifyPage'
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/interview" element={<InterviewPage />} />
+        <Route path="/verify-page" element={<FaceVerifyPage />} />
       </Routes>
     </Router>
   )
