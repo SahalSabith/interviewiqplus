@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, Moon, Sun } from 'lucide-react';
+import { loginUser, clearError } from '../redux/slices/authslice';
 
 export default function LoginPage() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { isLoading, error, isAuthenticated } = useSelector((state) => state.auth);
+
   const [showPassword, setShowPassword] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [formData, setFormData] = useState({
-    emailOrMobile: '',
+    identifier: '',
     password: ''
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/interview');
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const handleChange = (e) => {
     setFormData({
@@ -16,13 +35,19 @@ export default function LoginPage() {
     });
   };
 
-  const handleSubmit = () => {
-    console.log('Login data:', formData);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    dispatch(clearError());
+    
+    await dispatch(loginUser({
+      identifier: formData.identifier,
+      password: formData.password
+    }));
   };
 
   const onHome = () => {
-    console.log('Navigate to home');
-  }
+    navigate('/');
+  };
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center px-4 py-8 transition-colors duration-300`}>
@@ -49,7 +74,14 @@ export default function LoginPage() {
         <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-6 sm:p-8 transition-colors duration-300`}>
           <h2 className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6 text-center`}>Login</h2>
 
-          <div className="space-y-5">
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email or Mobile Input */}
             <div>
               <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
@@ -59,9 +91,10 @@ export default function LoginPage() {
                 <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} size={20} />
                 <input
                   type="text"
-                  name="emailOrMobile"
-                  value={formData.emailOrMobile}
+                  name="identifier"
+                  value={formData.identifier}
                   onChange={handleChange}
+                  required
                   className={`w-full pl-11 pr-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white placeholder-gray-500' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
                   placeholder="Enter email or mobile"
                 />
@@ -80,6 +113,7 @@ export default function LoginPage() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
+                  required
                   className={`w-full pl-11 pr-12 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white placeholder-gray-500' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
                   placeholder="Enter password"
                 />
@@ -102,12 +136,17 @@ export default function LoginPage() {
 
             {/* Login Button */}
             <button
-              onClick={handleSubmit}
-              className={`w-full ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} py-3 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+              type="submit"
+              disabled={isLoading}
+              className={`w-full ${
+                isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'
+              } py-3 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
             >
-              Login
+              {isLoading ? 'Logging in...' : 'Login'}
             </button>
-          </div>
+          </form>
 
           {/* Divider */}
           <div className="flex items-center my-6">
@@ -140,7 +179,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
               Don't have an account?{' '}
-              <a href="#register" className={`${isDark ? 'text-white hover:text-gray-300' : 'text-gray-900 hover:text-gray-700'} font-semibold transition-colors duration-200`}>
+              <a href="/register" className={`${isDark ? 'text-white hover:text-gray-300' : 'text-gray-900 hover:text-gray-700'} font-semibold transition-colors duration-200`}>
                 Register here
               </a>
             </p>

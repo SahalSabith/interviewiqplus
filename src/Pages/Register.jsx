@@ -1,7 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { User, Calendar, Briefcase, Target, Building, Award, ChevronRight, ChevronLeft, CheckCircle, Moon, Sun, Mail, Phone, Camera } from 'lucide-react';
+import { registerUser, registerFace, clearError } from '../redux/slices/authslice';
 
 export default function RegisterPage() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { isLoading, error, registrationStep, tempRegistrationData } = useSelector((state) => state.auth);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [isDark, setIsDark] = useState(false);
@@ -14,6 +21,7 @@ export default function RegisterPage() {
     name: '',
     email: '',
     mobile: '',
+    password: '',
     age: '',
     dob: '',
     gender: '',
@@ -24,6 +32,21 @@ export default function RegisterPage() {
     skills: ''
   });
 
+  useEffect(() => {
+    if (registrationStep === 'face') {
+      setShowFaceCapture(true);
+      startCamera();
+    }
+  }, [registrationStep]);
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -32,7 +55,7 @@ export default function RegisterPage() {
   };
 
   const onHome = () => {
-    console.log('Navigate to home');
+    navigate('/');
   };
 
   const nextStep = () => {
@@ -48,45 +71,29 @@ export default function RegisterPage() {
   };
 
   const handleSubmit = async () => {
-    try {
-      // Prepare data according to Django model field names
-      const registrationData = {
-        full_name: formData.name,
-        email: formData.email,
-        mobile: formData.mobile,
-        password: formData.password || 'defaultPassword123', // You should add password field
-        age: parseInt(formData.age),
-        dob: formData.dob,
-        gender: formData.gender.toLowerCase().replace(/ /g, '_'),
-        current_status: formData.educationOccupation.toLowerCase().replace(/ /g, '_'),
-        job_role: formData.studyingWorking,
-        career_interest: formData.domainInterest,
-        target_company: formData.targetCompany,
-        confident_skills: formData.skills,
-        face_encoding: '' // Will be filled after face capture
-      };
+    dispatch(clearError());
 
-      const response = await fetch('http://127.0.0.1:8000/api/account/register/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(registrationData)
-      });
+    // Prepare data according to Django model field names
+    const registrationData = {
+      full_name: formData.name,
+      email: formData.email,
+      mobile: formData.mobile,
+      password: formData.password || 'defaultPassword123',
+      age: parseInt(formData.age),
+      dob: formData.dob,
+      gender: formData.gender.toLowerCase().replace(/ /g, '_'),
+      current_status: formData.educationOccupation.toLowerCase().replace(/ /g, '_'),
+      job_role: formData.studyingWorking,
+      career_interest: formData.domainInterest,
+      target_company: formData.targetCompany,
+      confident_skills: formData.skills,
+      face_encoding: ''
+    };
 
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log('Registration successful:', data);
-        setCaptureStatus('');
-        setShowFaceCapture(true);
-        startCamera();
-      } else {
-        alert(`Registration failed: ${JSON.stringify(data.errors || data.message)}`);
-      }
-    } catch (error) {
-      console.error('Error during registration:', error);
-      alert('Registration failed. Please check your connection and try again.');
+    const result = await dispatch(registerUser(registrationData));
+    
+    if (registerUser.fulfilled.match(result)) {
+      // Success - will trigger useEffect to show face capture
     }
   };
 
@@ -119,30 +126,28 @@ export default function RegisterPage() {
       ctx.drawImage(webcamRef.current, 0, 0);
       const imageSrc = canvas.toDataURL('image/jpeg');
 
-      // Simulate API call (replace with your actual endpoint)
-      const response = await fetch('http://127.0.0.1:8000/api/account/register-face/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          image: imageSrc
-        })
-      });
+      const result = await dispatch(registerFace({
+        email: formData.email,
+        image: imageSrc
+      }));
 
-      const data = await response.json();
-      setCaptureStatus(data.message || 'Face captured successfully!');
-      
-      // Stop camera after successful capture
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (registerFace.fulfilled.match(result)) {
+        setCaptureStatus('Face captured successfully!');
+        
+        // Stop camera after successful capture
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        setTimeout(() => {
+          setCaptureStatus('Registration completed! Redirecting...');
+          setTimeout(() => {
+            navigate('/login');
+          }, 1500);
+        }, 2000);
+      } else {
+        setCaptureStatus(result.payload?.message || 'Error capturing face. Please try again.');
       }
-      
-      setTimeout(() => {
-        setCaptureStatus('Registration completed! Redirecting...');
-        // Add redirect logic here
-      }, 2000);
       
     } catch (err) {
       console.error('Error capturing face:', err);
@@ -185,33 +190,33 @@ export default function RegisterPage() {
                 <div className="absolute inset-0 border-4 border-dashed border-white/30 rounded-lg pointer-events-none"></div>
               </div>
 
-              {captureStatus && (
+              {(captureStatus || error) && (
                 <div className={`mb-4 p-4 rounded-lg ${
-                  captureStatus.includes('Error') 
+                  (captureStatus.includes('Error') || error)
                     ? 'bg-red-100 text-red-800' 
                     : captureStatus.includes('successfully') 
                     ? 'bg-green-100 text-green-800'
                     : isDark ? 'bg-gray-700 text-gray-200' : 'bg-blue-100 text-blue-800'
                 }`}>
-                  {captureStatus}
+                  {error || captureStatus}
                 </div>
               )}
 
               <div className="flex gap-4">
                 <button
                   onClick={captureAndSend}
-                  disabled={isCapturing}
+                  disabled={isCapturing || isLoading}
                   className={`flex items-center gap-2 ${
-                    isCapturing 
+                    (isCapturing || isLoading)
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'
                   } px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
                 >
                   <Camera size={20} />
-                  {isCapturing ? 'Capturing...' : 'Capture Face'}
+                  {(isCapturing || isLoading) ? 'Capturing...' : 'Capture Face'}
                 </button>
 
-                {captureStatus.includes('Error') && (
+                {(captureStatus.includes('Error') || error) && (
                   <button
                     onClick={retakePhoto}
                     className={`flex items-center gap-2 ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg font-semibold transition-all duration-200`}
@@ -264,6 +269,13 @@ export default function RegisterPage() {
 
         {/* Registration Card */}
         <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-6 sm:p-8 transition-colors duration-300`}>
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
+              {typeof error === 'string' ? error : JSON.stringify(error)}
+            </div>
+          )}
+
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
@@ -350,6 +362,20 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
                   placeholder="+1 (555) 000-0000"
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:${isDark ? 'border-white' : 'border-gray-900'} focus:outline-none transition-colors duration-200`}
+                  placeholder="Create a password"
                 />
               </div>
 
@@ -567,10 +593,15 @@ export default function RegisterPage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className={`flex items-center gap-2 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                disabled={isLoading}
+                className={`flex items-center gap-2 ${
+                  isLoading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'
+                } px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
               >
                 <CheckCircle size={20} />
-                Continue to Verification
+                {isLoading ? 'Submitting...' : 'Continue to Verification'}
               </button>
             )}
           </div>
@@ -579,7 +610,7 @@ export default function RegisterPage() {
           <div className="mt-6 text-center">
             <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
               Already have an account?{' '}
-              <a href="#login" className={`${isDark ? 'text-white hover:text-gray-300' : 'text-gray-900 hover:text-gray-700'} font-semibold transition-colors duration-200`}>
+              <a href="/login" className={`${isDark ? 'text-white hover:text-gray-300' : 'text-gray-900 hover:text-gray-700'} font-semibold transition-colors duration-200`}>
                 Login here
               </a>
             </p>

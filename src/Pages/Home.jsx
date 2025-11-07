@@ -1,24 +1,43 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 import { Menu, X, Play, CheckCircle, Clock, Shield, Zap, Star, Facebook, Twitter, Linkedin, Instagram, Moon, Sun } from 'lucide-react';
+import { logout } from '../redux/slices/authslice';
 
 // Header Component
 const Header = ({ isDark, setIsDark }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   const onLogin = () => {
-    console.log('Navigate to login');
-  }
+    navigate('/login');
+  };
 
   const onRegister = () => {
-    console.log('Navigate to register');
-  }
+    navigate('/register');
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/');
+  };
+
+  const handleStartInterview = () => {
+    if (isAuthenticated) {
+      navigate('/interview');
+    } else {
+      navigate('/register');
+    }
+  };
 
   return (
     <header className={`${isDark ? 'bg-gray-900' : 'bg-white'} shadow-lg sticky top-0 z-50 transition-colors duration-300`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <nav className="flex items-center justify-between h-20">
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
             <h1 className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
               InterviewIQPlus
             </h1>
@@ -27,10 +46,16 @@ const Header = ({ isDark, setIsDark }) => {
           {/* Desktop Navigation */}
           <ul className="hidden lg:flex items-center space-x-8">
             <li><a href="#home" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>Home</a></li>
-            <li><a href="#start" className={`${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg`}>Start Interview</a></li>
+            <li>
+              <button 
+                onClick={handleStartInterview}
+                className={`${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg`}
+              >
+                Start Interview
+              </button>
+            </li>
             <li><a href="#subscription" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>Subscription</a></li>
-            <li><a href="#history" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>History</a></li>
-            {/* <li><a href="#profile" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>Profile</a></li> */}
+            {isAuthenticated && <li><a href="#history" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>History</a></li>}
             <li><a href="#about" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>About</a></li>
             <li><a href="#contact" className={`${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition-colors duration-200`}>Contact & Feedback</a></li>
           </ul>
@@ -43,12 +68,28 @@ const Header = ({ isDark, setIsDark }) => {
             >
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button onClick={onLogin} className={`${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 px-6 py-2 rounded-lg font-semibold transition-all duration-200`}>
-              Login
-            </button>
-            <button onClick={onRegister} className={`${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-6 py-2 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg`}>
-              Register
-            </button>
+            {isAuthenticated ? (
+              <>
+                <span className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>
+                  Hi, {user?.full_name?.split(' ')[0]}
+                </span>
+                <button 
+                  onClick={handleLogout}
+                  className={`${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 px-6 py-2 rounded-lg font-semibold transition-all duration-200`}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={onLogin} className={`${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 px-6 py-2 rounded-lg font-semibold transition-all duration-200`}>
+                  Login
+                </button>
+                <button onClick={onRegister} className={`${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-6 py-2 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg`}>
+                  Register
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -65,10 +106,16 @@ const Header = ({ isDark, setIsDark }) => {
           <div className="lg:hidden pb-6 animate-fadeIn">
             <ul className="space-y-3">
               <li><a href="#home" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>Home</a></li>
-              <li><a href="#start" className={`block py-3 px-4 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-lg font-medium transition-all duration-200`}>Start Interview</a></li>
+              <li>
+                <button 
+                  onClick={handleStartInterview}
+                  className={`w-full text-left py-3 px-4 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-lg font-medium transition-all duration-200`}
+                >
+                  Start Interview
+                </button>
+              </li>
               <li><a href="#subscription" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>Subscription</a></li>
-              <li><a href="#history" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>History</a></li>
-              {/* <li><a href="#profile" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>Profile</a></li> */}
+              {isAuthenticated && <li><a href="#history" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>History</a></li>}
               <li><a href="#about" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>About</a></li>
               <li><a href="#contact" className={`block py-3 px-4 ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} rounded-lg font-medium transition-all duration-200`}>Contact & Feedback</a></li>
             </ul>
@@ -80,12 +127,28 @@ const Header = ({ isDark, setIsDark }) => {
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
                 {isDark ? 'Light Mode' : 'Dark Mode'}
               </button>
-              <button onClick={onLogin} className={`py-3 px-6 ${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 rounded-lg font-semibold transition-all duration-200`}>
-                Login
-              </button>
-              <button onClick={onRegister} className={`py-3 px-6 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-lg font-semibold transition-all duration-200`}>
-                Register
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <div className={`py-3 px-6 ${isDark ? 'text-white' : 'text-gray-900'} text-center font-medium`}>
+                    Hi, {user?.full_name}
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className={`py-3 px-6 ${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 rounded-lg font-semibold transition-all duration-200`}
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={onLogin} className={`py-3 px-6 ${isDark ? 'text-white border-white hover:bg-white hover:text-gray-900' : 'text-gray-900 border-gray-900 hover:bg-gray-900 hover:text-white'} border-2 rounded-lg font-semibold transition-all duration-200`}>
+                    Login
+                  </button>
+                  <button onClick={onRegister} className={`py-3 px-6 ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-lg font-semibold transition-all duration-200`}>
+                    Register
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -97,6 +160,7 @@ const Header = ({ isDark, setIsDark }) => {
 // Main App Component
 export default function HomePage() {
   const [isDark, setIsDark] = useState(false);
+  const navigate = useNavigate();
 
   const features = [
     {
@@ -159,7 +223,10 @@ export default function HomePage() {
               Master your interview skills with intelligent AI feedback and practice sessions tailored to your career goals
             </p>
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
-              <button className={`w-full sm:w-auto ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 shadow-2xl hover:shadow-xl hover:scale-105 transform`}>
+              <button 
+                onClick={() => navigate('/register')}
+                className={`w-full sm:w-auto ${isDark ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 shadow-2xl hover:shadow-xl hover:scale-105 transform`}
+              >
                 Start Free Interview
               </button>
               <button className={`w-full sm:w-auto ${isDark ? 'bg-transparent border-3 border-white text-white hover:bg-white hover:text-gray-900' : 'bg-transparent border-3 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white'} px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform`}>
